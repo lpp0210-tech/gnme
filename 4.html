@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>加值百貨：午夜規則 V2</title>
+    <style>
+        :root { --danger: #ff4444; --bg: #050505; --text: #d0d0d0; }
+        body { background: var(--bg); color: var(--text); font-family: "Microsoft JhengHei", sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        #game-container { width: 95%; max-width: 750px; background: #111; border: 2px solid #222; padding: 30px; box-shadow: 0 0 40px rgba(0,0,0,0.8); }
+        #header { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding-bottom: 15px; margin-bottom: 25px; font-size: 0.9em; letter-spacing: 1px; }
+        #story { font-size: 1.25em; line-height: 1.8; min-height: 180px; margin-bottom: 30px; color: #eee; }
+        #options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        button { background: #1a1a1a; border: 1px solid #444; color: #ccc; padding: 18px; cursor: pointer; transition: 0.3s; font-size: 1em; text-align: center; }
+        button:hover { border-color: var(--danger); color: #fff; background: #2a0a0a; box-shadow: inset 0 0 10px rgba(255,0,0,0.2); }
+        .stat-val { color: var(--danger); font-weight: bold; }
+        .glitch-active { animation: shake 0.1s infinite; border: 1px solid red; }
+        @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-1px, -1px); } 100% { transform: translate(0); } }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="header">
+        <div id="loc-display">位置：--</div>
+        <div>理智值：<span id="san-display" class="stat-val">100</span></div>
+    </div>
+    <div id="story"></div>
+    <div id="options"></div>
+</div>
+
+<script>
+    let state = { loc: 'start', san: 100 };
+
+    const scenes = {
+        'start': {
+            loc: '一樓 大廳',
+            text: '你被困在深夜的百貨公司，鐵捲門封死了。化妝品專櫃的玻璃反射著不安的紅光。你發現保安櫃檯下似乎有東西在閃爍。',
+            opts: [
+                { t: '搜查保安櫃檯', next: 'desk', san: -5 },
+                { t: '強行拉開鐵捲門', next: 'gate_fail', san: -15 },
+                { t: '前往中央電梯', next: 'elevator', san: -5 },
+                { t: '躲進試衣間', next: 'closet', san: -10 }
+            ]
+        },
+        'desk': {
+            loc: '一樓 保安室',
+            text: '你拿到了一串「萬用鑰匙」與一本「日誌」。螢幕上顯示所有樓層的服裝模特兒都在緩緩移動，並朝向你所在的位置。',
+            opts: [
+                { t: '查看監視器細節', next: 'monitors', san: -20 },
+                { t: '拿上鑰匙前往電梯', next: 'elevator', san: 0 },
+                { t: '對著廣播系統求救', next: 'broadcast', san: -10 },
+                { t: '試著打電話外求助', next: 'phone_dead', san: -5 }
+            ]
+        },
+        'gate_fail': {
+            loc: '一樓 門口',
+            text: '門絲毫未動。你感覺到身後有數十道視線。轉頭一看，一排原本在二樓的模特兒現在正站在你身後三公尺處。',
+            opts: [
+                { t: '瘋狂跑向電梯', next: 'elevator', san: -10 },
+                { t: '試著跟模特兒對話', next: 'death_trap', san: -50 },
+                { t: '尋找其他出口', next: 'start', san: -5 },
+                { t: '蹲下抱頭痛哭', next: 'end_b', san: -30 }
+            ]
+        },
+        'elevator': {
+            loc: '電梯廳',
+            text: '電梯門開了，裡面滿是長髮。牆上寫著「B4 才是解脫」。但這棟樓理應只有 B1。',
+            opts: [
+                { t: '按下 B4 樓層', next: 'basement_4', san: -20 },
+                { t: '按下 12 樓頂樓', next: 'rooftop', san: -5 },
+                { t: '逃出手法梯', next: 'stairs', san: -10 },
+                { t: '在電梯內等待', next: 'end_b', san: -40 }
+            ]
+        },
+        'basement_4': {
+            loc: '地下一三樓',
+            text: '這裡是一片荒蕪的地下停車場，堆滿了被拆解的假人手臂。你發現了一個發光的法陣。',
+            opts: [
+                { t: '啟動法陣(需要日誌)', next: 'end_a', san: 0 },
+                { t: '調查手臂堆', next: 'death_trap', san: -100 },
+                { t: '跑回電梯', next: 'elevator', san: -10 },
+                { t: '在牆上寫下遺言', next: 'end_b', san: -20 }
+            ]
+        },
+        'rooftop': {
+            loc: '頂樓 天台',
+            text: '夜風刺骨。天台的門鎖著。你可以看到遠方的城市燈火，但這裡安靜得像墳場。',
+            opts: [
+                { t: '用鑰匙開門', next: 'end_c', san: 0 },
+                { t: '嘗試從水管爬下', next: 'death_trap', san: -20 },
+                { t: '跳向隔壁大樓', next: 'death_trap', san: -10 },
+                { t: '等待日出', next: 'end_b', san: -50 }
+            ]
+        },
+        'death_trap': {
+            loc: '黑暗中',
+            text: '你踏錯了步。冷冰冰的塑膠手穿透了你的胸膛。你感覺到自己正在變硬、變白。',
+            opts: Array(4).fill({ t: '重新開始', next: 'restart' })
+        },
+        'end_a': { loc: '結局 A', text: '【真相大白】你揭開了百貨的詛咒。雖然逃脫了，但你發現世界上的每個人在你眼裡都變成了假人。', opts: Array(4).fill({ t: '重回噩夢', next: 'restart' }) },
+        'end_b': { loc: '結局 B', text: '【成為模特兒】你放棄了反抗。第二天早上，你是櫥窗裡最完美的新展品。', opts: Array(4).fill({ t: '重回噩夢', next: 'restart' }) },
+        'end_c': { loc: '結局 C', text: '【平凡生還】你活了下來。但每當你路過百貨公司，你都會聽到自己的聲音從廣播裡傳出。', opts: Array(4).fill({ t: '重回噩夢', next: 'restart' }) },
+        'end_d': { loc: '結局 D', text: '【徹底瘋狂】你的理智徹底崩潰，你不再感到恐懼，因為你已經成為了恐懼本身。', opts: Array(4).
